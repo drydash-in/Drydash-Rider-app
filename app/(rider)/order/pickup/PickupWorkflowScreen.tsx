@@ -147,8 +147,8 @@ export default function PickupWorkflowScreen({
     matchedStop?.completed === true ||
     pickup?.status === "complete" ||
     pickup?.status === "completed" ||
-    pickup?.PickupStatus === "complete" ||
-    pickup?.PickupStatus === "completed" ||
+    (pickup as any)?.PickupStatus === "complete" ||
+    (pickup as any)?.PickupStatus === "completed" ||
     pickup?.completed === true;
   const [servicesBySlug, setServicesBySlug] = useState<
     Record<string, ServiceState>

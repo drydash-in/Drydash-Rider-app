@@ -9,10 +9,9 @@ import { AppState, InteractionManager } from "react-native";
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const { notify } = useNotification();
-  const { setPickups, setDeliveries } = useRiderData();
+  const { setPickups, setDeliveries, refreshActiveTrip } = useRiderData();
   const API_URL = "https://api.shiptos.com/api/v1/rider";
   const API_URL_ORDER = "https://api.shiptos.com/api/v1";
-
 
   const getPickups = async () => {
     if (!user?.email) return;
@@ -24,14 +23,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       const data = await res.json();
-      //   console.log("user ifo---> ", user)
-      //  console.log("data------------------------------------------>", data);
-      const filteredPickups = (data?.Pickups).filter(
-        (el: any) => el.riderName === user.name,
-      );
-      setPickups([...filteredPickups]);
-    } finally {
-      // setRefreshing(false);
+      if (data && Array.isArray(data.Pickups)) {
+        const filteredPickups = data.Pickups.filter((el: any) => {
+          if (!el.riderName || !user.name) return true;
+          return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+        });
+        setPickups([...filteredPickups]);
+      }
+    } catch (err) {
+      console.warn("getPickups error:", err);
     }
   };
 
@@ -47,54 +47,70 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
       const Orderdata = await res.json();
-      console.log("data------------------------------------------>", Orderdata);
-
-      const filteredOrders = (Orderdata?.orders).filter(
-        (el: any) => el.riderName === user.name,
-      );
-      console.log(
-        "filteredOrders------------------------------------------>",
-        filteredOrders,
-      );
-      const mapOrder = filteredOrders.map((el: any) => {
-        return {
-          id: el?._id,
-          orderId: el?.order_id,
-          name: el?.customerName,
-          address: el?.address,
-        };
-      });
-      setDeliveries([...mapOrder]);
-    } finally {
-      // setRefreshing(false);
+      if (Orderdata && Array.isArray(Orderdata.orders)) {
+        const filteredOrders = Orderdata.orders.filter((el: any) => {
+          if (!el.riderName || !user.name) return true;
+          return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+        });
+        const mapOrder = filteredOrders.map((el: any) => {
+          return {
+            id: el?._id,
+            orderId: el?.order_id,
+            name: el?.customerName,
+            address: el?.address,
+          };
+        });
+        setDeliveries([...mapOrder]);
+      }
+    } catch (err) {
+      console.warn("getDelivery error:", err);
     }
   };
-
 
   useEffect(() => {
     const riderId = user?._id;
     if (!riderId) return;
 
-    const handlePickupAssigned = async ({ pickup }: { pickup: any }) => {
+    let isMounted = true;
+
+    const handlePickupAssigned = async (payload: any) => {
       if (!isMounted) return;
+
+      const pickup = payload?.pickup || payload;
+      if (!pickup) return;
 
       console.log(
         "🔥 [SocketProvider] pickup assigned (frontend fix):",
         pickup,
       );
 
-      console.log("this is the socket ", socket.id)
-
       const shortId = pickup?._id
-        ? pickup._id.slice(-5).toUpperCase()
+        ? String(pickup._id).slice(-5).toUpperCase()
         : "-----";
-      console.log("user==> ", user)
-      if (pickup.riderName === user.name) {
+
+      const isForCurrentRider =
+        !pickup.riderName ||
+        !user?.name ||
+        pickup.riderName.trim().toLowerCase() === user.name.trim().toLowerCase() ||
+        pickup.riderId?.toString() === user._id?.toString() ||
+        pickup.assignedRider?.pickup?.riderId?.toString() === user._id?.toString();
+
+      if (isForCurrentRider) {
+        // 🔥 Immediately refresh active trip and tasks in real time
+        if (user?._id) {
+          refreshActiveTrip(user._id, user.email);
+        }
         getPickups();
+
         notify?.({
           title: "New Pickup Assigned 🚀",
           message: `Pickup ID: WZP-${shortId}`,
           duration: 5000,
+          data: {
+            type: "pickup",
+            pickupId: pickup._id,
+            screen: "pickup",
+          },
         });
 
         try {
@@ -102,11 +118,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {
           console.warn("🔊 play sound failed", e);
         }
-
       }
     };
 
-    let isMounted = true;
     console.log("🔌 [SocketProvider] Initializing socket for rider:", riderId);
 
     // helper to safely (re)attach a listener (removes previous to avoid duplicates)
@@ -132,7 +146,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     safeOn("connect_error", (err: any) => {
       console.error("❌ [SocketProvider] connect_error:", err?.message ?? err);
-      // lightweight reconnect attempt (socket.io will also try automatically)
       setTimeout(() => {
         if (!socket.connected) {
           console.log("🔄 [SocketProvider] attempting manual reconnect...");
@@ -143,7 +156,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     safeOn("disconnect", (reason: any) => {
       console.log("⚠️ [SocketProvider] disconnected:", reason);
-      // If server forcibly disconnected, tell socket to try reconnecting
       if (reason === "io server disconnect") {
         socket.connect();
       }
@@ -153,10 +165,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.log(
         `🔄 [SocketProvider] reconnected after ${attemptNumber} attempts`,
       );
-      if (user?._id) socket.emit("joinRider", { riderId: user._id });
+      if (user?._id) {
+        socket.emit("joinRider", { riderId: user._id });
+        refreshActiveTrip(user._id, user.email);
+        getPickups();
+        getDelivery();
+      }
     });
 
-    // Optional: more detailed reconnect logs
     safeOn("reconnect_attempt", (attempt: number) =>
       console.log(`🔄 reconnect attempt ${attempt}`),
     );
@@ -165,12 +181,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     );
     safeOn("reconnect_failed", () => console.error("❌ reconnect_failed"));
 
-    // --- Domain events (remove previous first to avoid duplicates) ---
+    // --- Domain events ---
     safeOn("riderAssignedPickup", handlePickupAssigned); // room-based
     safeOn("assignedPickup", handlePickupAssigned); // global emit (backend compat)
+    safeOn("addPickup", handlePickupAssigned);
 
     safeOn("assignOrder", async ({ order }: { order: any }) => {
-      if (!isMounted) return;
+      if (!isMounted || !order) return;
       try {
         console.log("🔥 [SocketProvider] assignOrder received:", order);
 
@@ -182,12 +199,29 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           address: order.address,
         };
 
-        if (order.riderName === user.name) {
+        const isForCurrentRider =
+          !order.riderName ||
+          !user?.name ||
+          order.riderName.trim().toLowerCase() === user.name.trim().toLowerCase() ||
+          order.riderId?.toString() === user._id?.toString() ||
+          order.assignedRider?.delivery?.riderId?.toString() === user._id?.toString();
+
+        if (isForCurrentRider) {
+          // 🔥 Immediately refresh active trip and tasks in real time
+          if (user?._id) {
+            refreshActiveTrip(user._id, user.email);
+          }
           getDelivery();
+
           notify?.({
             title: "New Delivery Assigned 📦",
             message: `Order ID: ${mapped.orderId ?? mapped.id?.slice(-5)}`,
             duration: 5000,
+            data: {
+              type: "delivery",
+              orderId: mapped.id,
+              screen: "delivery",
+            },
           });
 
           try {
@@ -199,6 +233,21 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (err) {
         console.error("❌ Error handling assignOrder:", err);
       }
+    });
+
+    safeOn("trip_assigned", () => {
+      if (user?._id) refreshActiveTrip(user._id, user.email);
+    });
+    safeOn("trip_updated", () => {
+      if (user?._id) refreshActiveTrip(user._id, user.email);
+    });
+    safeOn("pickup_rescheduled", () => {
+      if (user?._id) refreshActiveTrip(user._id, user.email);
+      getPickups();
+    });
+    safeOn("pickupCancelled", () => {
+      if (user?._id) refreshActiveTrip(user._id, user.email);
+      getPickups();
     });
 
     safeOn(
@@ -237,7 +286,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (connectTimer) clearTimeout(connectTimer);
       connectTask.cancel();
       console.log("🧹 [SocketProvider] cleaning up socket listeners");
-      // turn off only the events we attached
       [
         "connect",
         "connect_error",
@@ -248,7 +296,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         "reconnect_failed",
         "riderAssignedPickup",
         "assignedPickup",
+        "addPickup",
         "assignOrder",
+        "trip_assigned",
+        "trip_updated",
+        "pickup_rescheduled",
+        "pickupCancelled",
         "locationUpdateAck",
       ].forEach((ev) => {
         try {
@@ -257,14 +310,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           /* ignore */
         }
       });
-
-      // Do NOT forcibly disconnect here — allow socket.io to manage reconnection
-      // socket.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id, socket]);
+  }, [user?._id, user?.name, user?.email, socket]);
 
-  // Handle app foreground reconnect
+  // Handle app foreground reconnect & fresh sync
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
@@ -276,11 +326,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           socket.emit("joinRider", { riderId });
           socket.emit("joinAdmin");
         }
+
+        // 🔥 Seamlessly sync active trip and tasks when rider returns to app
+        refreshActiveTrip(riderId, user.email);
+        getPickups();
+        getDelivery();
       }
     });
 
     return () => sub.remove();
-  }, [user?._id]);
+  }, [user?._id, user?.email]);
 
   return <>{children}</>;
 };

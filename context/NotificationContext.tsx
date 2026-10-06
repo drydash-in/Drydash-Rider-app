@@ -1,9 +1,11 @@
 // context/NotificationContext.tsx
 import InAppToast from "@/components/notifications/InAppToast";
 import { useAuth } from "@/context/useAuth";
+import { useRiderData } from "@/context/RiderDataContext";
 import { setupNotificationChannel } from "@/services/notificationSetup";
 import { playNotificationSound } from "@/services/notificationSound";
 import { registerForPushNotifications } from "@/services/pushNotifications";
+import { API_V1_BASE_URL } from "@/constants/apiConfig";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
@@ -46,6 +48,9 @@ export const NotificationProvider = ({
   children: React.ReactNode;
 }) => {
   const { user, token } = useAuth();
+  const riderData = useRiderData();
+  const refreshActiveTrip = riderData?.refreshActiveTrip;
+
   const [visible, setVisible] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
@@ -88,6 +93,7 @@ export const NotificationProvider = ({
       const isPickup =
         data?.screen === "pickup" ||
         data?.type === "pickup" ||
+        data?.type === "pickup_assigned" ||
         data?.target === "pickup" ||
         Boolean(data?.pickupId) ||
         Boolean(data?.pickup_id);
@@ -129,7 +135,7 @@ export const NotificationProvider = ({
         fcmTokenRef.current = fcmToken;
         registeredUserRef.current = user._id;
 
-        await fetch("https://api.shiptos.com/api/v1/rider/push-tokens", {
+        await fetch(`${API_V1_BASE_URL}/rider/push-tokens`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -166,7 +172,7 @@ export const NotificationProvider = ({
       if (!t) return;
 
       try {
-        await fetch("https://api.shiptos.com/api/v1/rider/push-tokens", {
+        await fetch(`${API_V1_BASE_URL}/rider/push-tokens`, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -186,6 +192,28 @@ export const NotificationProvider = ({
   }, [user, token]);
 
   useEffect(() => {
+    // 1. Listen for push token rotation / refresh
+    const tokenSub = Notifications.addPushTokenListener(async (tokenData) => {
+      if (!user?._id || !token || !tokenData?.data) return;
+      try {
+        fcmTokenRef.current = tokenData.data;
+        await fetch(`${API_V1_BASE_URL}/rider/push-tokens`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            token: tokenData.data,
+            platform: "android",
+          }),
+        });
+      } catch (e) {
+        console.warn("Failed to update push token on rotation:", e);
+      }
+    });
+
+    // 2. Notification received (foreground or background wake)
     const receivedSub = Notifications.addNotificationReceivedListener(
       (notification) => {
         console.log("🔥 RECEIVED RAW:", notification);
@@ -199,6 +227,11 @@ export const NotificationProvider = ({
 
         const data = content.data || {};
 
+        // 🔥 Refresh active trip and tasks in real time when notification arrives
+        if (user?._id && refreshActiveTrip) {
+          refreshActiveTrip(user._id, user.email);
+        }
+
         // 🔥 FORCE UI UPDATE
         notify({
           title,
@@ -211,18 +244,23 @@ export const NotificationProvider = ({
       },
     );
 
+    // 3. User clicked/tapped notification (from system tray or toast)
     const responseSub = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        if (user?._id && refreshActiveTrip) {
+          refreshActiveTrip(user._id, user.email);
+        }
         const data = response.notification.request.content.data;
         handleNavigationFromData(data);
       },
     );
 
     return () => {
+      tokenSub.remove();
       receivedSub.remove();
       responseSub.remove();
     };
-  }, []);
+  }, [user?._id, user?.email, token, refreshActiveTrip]);
 
   useEffect(() => {
     if (!user?._id) return;
