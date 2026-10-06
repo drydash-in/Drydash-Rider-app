@@ -28,7 +28,7 @@ import { useRiderData } from "@/context/RiderDataContext";
 import { VRPStop } from "@/services/api/vrpTripService";
 import { openMapsNavigation } from "@/utils/navigationHelper";
 import { API_V1_BASE_URL } from "@/constants/apiConfig";
-import { setCameraActive, openOverlaySettingsDirectly } from "@/services/OverlayManager";
+import { setCameraActive, openOverlaySettingsDirectly, setMiniWindowSuppressed } from "@/services/OverlayManager";
 
 const { height } = Dimensions.get("window");
 
@@ -341,6 +341,11 @@ export default function Dashboard() {
 
   const handleStartWorkflow = (stop: VRPStop) => {
     if (stop.type === "depot") return;
+    setMiniWindowSuppressed(true);
+    setTimeout(() => {
+      setMiniWindowSuppressed(false);
+    }, 2500);
+
     const targetId = stop.id || (stop as any)._id || "";
     if (stop.type === "pickup") {
       router.push({

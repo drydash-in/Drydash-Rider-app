@@ -4,6 +4,7 @@ import UniversalLoader from "@/components/Loader/UniversalLoader";
 import ConfirmModal from "@/components/Modals/ConfirmModal";
 import { useAuth } from "@/context/useAuth";
 import { openMapsNavigation } from "@/utils/navigationHelper";
+import { setMiniWindowSuppressed } from "@/services/OverlayManager";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -372,6 +373,17 @@ export default function PickupWorkflowScreen({
   );
 
   useEffect(() => {
+    setMiniWindowSuppressed(true);
+    const timer = setTimeout(() => {
+      setMiniWindowSuppressed(false);
+    }, 2500);
+    return () => {
+      clearTimeout(timer);
+      setMiniWindowSuppressed(false);
+    };
+  }, []);
+
+  useEffect(() => {
     fetchPickupById();
   }, [fetchPickupById]);
 
@@ -385,7 +397,11 @@ export default function PickupWorkflowScreen({
   useEffect(() => {
     const preloadLocation = async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        let { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") {
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
+        }
         if (status !== "granted") {
           if (!locationChecked) {
             Alert.alert(

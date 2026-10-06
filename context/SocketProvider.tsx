@@ -25,8 +25,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       const data = await res.json();
       if (data && Array.isArray(data.Pickups)) {
         const filteredPickups = data.Pickups.filter((el: any) => {
-          if (!el.riderName || !user.name) return true;
-          return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+          const elRiderId =
+            el?.riderId?.toString() ||
+            el?.assignedRider?.pickup?.riderId?.toString() ||
+            el?.assignedRider?.riderId?.toString();
+          if (elRiderId && user?._id) {
+            return elRiderId === user._id.toString();
+          }
+          if (el?.riderName && user?.name) {
+            return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+          }
+          return false;
         });
         setPickups([...filteredPickups]);
       }
@@ -49,8 +58,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       const Orderdata = await res.json();
       if (Orderdata && Array.isArray(Orderdata.orders)) {
         const filteredOrders = Orderdata.orders.filter((el: any) => {
-          if (!el.riderName || !user.name) return true;
-          return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+          const elRiderId =
+            el?.riderId?.toString() ||
+            el?.assignedRider?.delivery?.riderId?.toString() ||
+            el?.assignedRider?.riderId?.toString();
+          if (elRiderId && user?._id) {
+            return elRiderId === user._id.toString();
+          }
+          if (el?.riderName && user?.name) {
+            return el.riderName.trim().toLowerCase() === user.name.trim().toLowerCase();
+          }
+          return false;
         });
         const mapOrder = filteredOrders.map((el: any) => {
           return {
@@ -80,44 +98,69 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (!pickup) return;
 
       console.log(
-        "🔥 [SocketProvider] pickup assigned (frontend fix):",
+        "🔥 [SocketProvider] pickup assigned received:",
         pickup,
       );
+
+      const pickupRiderId =
+        payload?.riderId?.toString() ||
+        pickup?.riderId?.toString() ||
+        pickup?.assignedRider?.pickup?.riderId?.toString() ||
+        pickup?.assignedRider?.riderId?.toString();
+
+      const pickupRiderName = (
+        payload?.riderName ||
+        pickup?.riderName ||
+        pickup?.assignedRider?.pickup?.riderName ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      const currentRiderId = user?._id ? user._id.toString() : null;
+      const currentRiderName = user?.name ? user.name.trim().toLowerCase() : null;
+
+      // Must be explicitly assigned to the currently logged in rider
+      const isForCurrentRider = Boolean(
+        (currentRiderId && pickupRiderId && currentRiderId === pickupRiderId) ||
+        (currentRiderName && pickupRiderName && currentRiderName === pickupRiderName)
+      );
+
+      if (!isForCurrentRider) {
+        console.log(
+          "ℹ️ [SocketProvider] Pickup not for current rider. Pickup rider:",
+          pickupRiderName || pickupRiderId,
+          "Current user:",
+          currentRiderName || currentRiderId,
+        );
+        return;
+      }
 
       const shortId = pickup?._id
         ? String(pickup._id).slice(-5).toUpperCase()
         : "-----";
 
-      const isForCurrentRider =
-        !pickup.riderName ||
-        !user?.name ||
-        pickup.riderName.trim().toLowerCase() === user.name.trim().toLowerCase() ||
-        pickup.riderId?.toString() === user._id?.toString() ||
-        pickup.assignedRider?.pickup?.riderId?.toString() === user._id?.toString();
+      // Immediately refresh active trip and tasks in real time
+      if (user?._id) {
+        refreshActiveTrip(user._id, user.email);
+      }
+      getPickups();
 
-      if (isForCurrentRider) {
-        // 🔥 Immediately refresh active trip and tasks in real time
-        if (user?._id) {
-          refreshActiveTrip(user._id, user.email);
-        }
-        getPickups();
+      notify?.({
+        title: "New Pickup Assigned 🚀",
+        message: `Pickup ID: WZP-${shortId}`,
+        duration: 5000,
+        data: {
+          type: "pickup",
+          pickupId: pickup._id,
+          screen: "pickup",
+        },
+      });
 
-        notify?.({
-          title: "New Pickup Assigned 🚀",
-          message: `Pickup ID: WZP-${shortId}`,
-          duration: 5000,
-          data: {
-            type: "pickup",
-            pickupId: pickup._id,
-            screen: "pickup",
-          },
-        });
-
-        try {
-          await playNotificationSound?.();
-        } catch (e) {
-          console.warn("🔊 play sound failed", e);
-        }
+      try {
+        await playNotificationSound?.();
+      } catch (e) {
+        console.warn("🔊 play sound failed", e);
       }
     };
 
@@ -139,9 +182,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("✅ [SocketProvider] connected:", socket.id);
       socket.emit("joinRider", { riderId });
       console.log("✅ [SocketProvider] joinRider emitted:", riderId);
-
-      // optionally join admin room only once
-      socket.emit("joinAdmin");
     });
 
     safeOn("connect_error", (err: any) => {
@@ -182,14 +222,45 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     safeOn("reconnect_failed", () => console.error("❌ reconnect_failed"));
 
     // --- Domain events ---
-    safeOn("riderAssignedPickup", handlePickupAssigned); // room-based
-    safeOn("assignedPickup", handlePickupAssigned); // global emit (backend compat)
-    safeOn("addPickup", handlePickupAssigned);
+    safeOn("riderAssignedPickup", handlePickupAssigned); // room-based (targeted to rider)
+    safeOn("assignedPickup", handlePickupAssigned); // when admin assigns pickup to rider
 
     safeOn("assignOrder", async ({ order }: { order: any }) => {
       if (!isMounted || !order) return;
       try {
         console.log("🔥 [SocketProvider] assignOrder received:", order);
+
+        const orderRiderId =
+          order?.riderId?.toString() ||
+          order?.assignedRider?.delivery?.riderId?.toString() ||
+          order?.assignedRider?.riderId?.toString();
+
+        const orderRiderName = (
+          order?.riderName ||
+          order?.assignedRider?.delivery?.riderName ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+
+        const currentRiderId = user?._id ? user._id.toString() : null;
+        const currentRiderName = user?.name ? user.name.trim().toLowerCase() : null;
+
+        // Must be explicitly assigned to current rider
+        const isForCurrentRider = Boolean(
+          (currentRiderId && orderRiderId && currentRiderId === orderRiderId) ||
+          (currentRiderName && orderRiderName && currentRiderName === orderRiderName)
+        );
+
+        if (!isForCurrentRider) {
+          console.log(
+            "ℹ️ [SocketProvider] Order not for current rider. Order rider:",
+            orderRiderName || orderRiderId,
+            "Current user:",
+            currentRiderName || currentRiderId,
+          );
+          return;
+        }
 
         const mapped = {
           id: order._id,
@@ -199,36 +270,27 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           address: order.address,
         };
 
-        const isForCurrentRider =
-          !order.riderName ||
-          !user?.name ||
-          order.riderName.trim().toLowerCase() === user.name.trim().toLowerCase() ||
-          order.riderId?.toString() === user._id?.toString() ||
-          order.assignedRider?.delivery?.riderId?.toString() === user._id?.toString();
+        // Immediately refresh active trip and tasks in real time
+        if (user?._id) {
+          refreshActiveTrip(user._id, user.email);
+        }
+        getDelivery();
 
-        if (isForCurrentRider) {
-          // 🔥 Immediately refresh active trip and tasks in real time
-          if (user?._id) {
-            refreshActiveTrip(user._id, user.email);
-          }
-          getDelivery();
+        notify?.({
+          title: "New Delivery Assigned 📦",
+          message: `Order ID: ${mapped.orderId ?? mapped.id?.slice(-5)}`,
+          duration: 5000,
+          data: {
+            type: "delivery",
+            orderId: mapped.id,
+            screen: "delivery",
+          },
+        });
 
-          notify?.({
-            title: "New Delivery Assigned 📦",
-            message: `Order ID: ${mapped.orderId ?? mapped.id?.slice(-5)}`,
-            duration: 5000,
-            data: {
-              type: "delivery",
-              orderId: mapped.id,
-              screen: "delivery",
-            },
-          });
-
-          try {
-            await playNotificationSound?.();
-          } catch (e) {
-            console.warn("🔊 play sound failed", e);
-          }
+        try {
+          await playNotificationSound?.();
+        } catch (e) {
+          console.warn("🔊 play sound failed", e);
         }
       } catch (err) {
         console.error("❌ Error handling assignOrder:", err);
@@ -324,7 +386,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         if (!socket.connected) {
           socket.connect();
           socket.emit("joinRider", { riderId });
-          socket.emit("joinAdmin");
         }
 
         // 🔥 Seamlessly sync active trip and tasks when rider returns to app
