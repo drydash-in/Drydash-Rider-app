@@ -514,7 +514,7 @@ export default function DeliveredOrderDetails() {
       }
 
       await updateStatusTo(orderId, "delivered");
-      await sendWhatsAppTemplateDelivered();
+      // await sendWhatsAppTemplateDelivered();   // don't want to send whatsapp template for delivered flow as per new requirement
       await getOrderDetails();
       setShowFollowupPickupPrompt(true);
     } catch (error) {
@@ -664,12 +664,14 @@ export default function DeliveredOrderDetails() {
 
       // 2️⃣ Send WhatsApp
       if (answered) {
-        await sendWhatsAppTemplateRescheduleWithCall(
-          orderIdParam,
-          newDate ?? undefined,
-        );
+        // await sendWhatsAppTemplateRescheduleWithCall(
+        //   orderIdParam,
+        //   newDate ?? undefined,
+        // );  ///
+        console.log("reschedule and customer picked the call");
       } else {
-        await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
+        // await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
+        console.log("reschedule and customer did not pick the call");
       }
 
       // ✅ 3️⃣ Navigate back with completed order id
