@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { useTheme } from "../../../context/ThemeContext";
 
-const API_URL = "https://api.drydash.in/api/v1";
+const API_URL = "https://api.shiptos.com/api/v1";
 
 export default function Notifications() {
   const { user } = useAuth();

@@ -18,6 +18,8 @@ class RiderTrackingModule(private val reactContext: ReactApplicationContext) : R
     companion object {
         private const val TAG = "RiderTrackingModule"
         var instance: RiderTrackingModule? = null
+        @Volatile
+        var isSuppressed: Boolean = false
     }
 
     init {
@@ -281,6 +283,23 @@ class RiderTrackingModule(private val reactContext: ReactApplicationContext) : R
             promise.resolve("PiP Stopped")
         } catch (e: Exception) {
             Log.e(TAG, "❌ stopPiP failed", e)
+            promise.reject("Error", e)
+        }
+    }
+
+    /**
+     * Suppress PiP during internal app navigation/transitions.
+     */
+    @ReactMethod
+    fun setPiPSuppressed(suppressed: Boolean, promise: Promise) {
+        try {
+            isSuppressed = suppressed
+            if (suppressed) {
+                LocationService.instance?.stopPiP()
+                    ?: PiPActivity.instance?.finish()
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
             promise.reject("Error", e)
         }
     }

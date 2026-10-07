@@ -4,6 +4,7 @@ import ConfirmModal from "@/components/Modals/ConfirmModal";
 import FollowupPickupModal from "@/components/Modals/FollowupPickupModal";
 import { useAuth } from "@/context/useAuth";
 import { openMapsNavigation } from "@/utils/navigationHelper";
+import { setMiniWindowSuppressed } from "@/services/OverlayManager";
 import { createFollowupPickupApi } from "@/services/api/followupPickup";
 import { socket } from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
@@ -88,6 +89,8 @@ interface OrderDetails {
   intransitImage?: string[];
   ready_for_delivery_images?: string[];
   isPaid?: boolean;
+  platform_type?: string;
+  appCustomerId?: string;
 }
 
 interface QrPaymentPayload {
@@ -195,6 +198,14 @@ export default function DeliveredOrderDetails() {
       xhr.send(null);
     });
 
+  const isWatiCustomer = (ord?: OrderDetails | null) => {
+    if (!ord) return false;
+    if (ord.platform_type) {
+      return String(ord.platform_type).toLowerCase().trim() === "wati";
+    }
+    return !ord.appCustomerId;
+  };
+
   const normalizePhoneForWhatsApp = (raw: any) => {
     if (!raw) return null;
     let digits = String(raw).replace(/\D/g, "");
@@ -205,6 +216,11 @@ export default function DeliveredOrderDetails() {
 
   const sendWhatsAppTemplateDelivered = async () => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const phone = normalizePhoneForWhatsApp(order?.contactNo);
       if (!phone) return false;
 
@@ -239,6 +255,11 @@ export default function DeliveredOrderDetails() {
     orderIdParam?: string,
   ) => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const phone = normalizePhoneForWhatsApp(order?.contactNo);
       if (!phone) return false;
 
@@ -272,6 +293,11 @@ export default function DeliveredOrderDetails() {
     chosenDate?: Date,
   ) => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const rescheduleDate = chosenDate
         ? moment(chosenDate).format("MMMM Do YYYY")
         : moment(order?.rescheduledDate).format("MMMM Do YYYY");
@@ -514,7 +540,7 @@ export default function DeliveredOrderDetails() {
       }
 
       await updateStatusTo(orderId, "delivered");
-      await sendWhatsAppTemplateDelivered();
+      // await sendWhatsAppTemplateDelivered();   // don't want to send whatsapp template for delivered flow as per new requirement
       await getOrderDetails();
       setShowFollowupPickupPrompt(true);
     } catch (error) {
@@ -664,12 +690,14 @@ export default function DeliveredOrderDetails() {
 
       // 2️⃣ Send WhatsApp
       if (answered) {
-        await sendWhatsAppTemplateRescheduleWithCall(
-          orderIdParam,
-          newDate ?? undefined,
-        );
+        // await sendWhatsAppTemplateRescheduleWithCall(
+        //   orderIdParam,
+        //   newDate ?? undefined,
+        // );  ///
+        console.log("reschedule and customer picked the call");
       } else {
-        await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
+        // await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
+        console.log("reschedule and customer did not pick the call");
       }
 
       // ✅ 3️⃣ Navigate back with completed order id
@@ -687,6 +715,17 @@ export default function DeliveredOrderDetails() {
   };
 
   /* ===================== LIFECYCLE ===================== */
+
+  useEffect(() => {
+    setMiniWindowSuppressed(true);
+    const timer = setTimeout(() => {
+      setMiniWindowSuppressed(false);
+    }, 2500);
+    return () => {
+      clearTimeout(timer);
+      setMiniWindowSuppressed(false);
+    };
+  }, []);
 
   useEffect(() => {
     getOrderDetails();

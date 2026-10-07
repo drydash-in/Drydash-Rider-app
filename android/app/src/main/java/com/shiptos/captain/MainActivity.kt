@@ -26,6 +26,9 @@ class MainActivity : ReactActivity() {
          */
         var instance: MainActivity? = null
             private set
+
+        @Volatile
+        var isForeground: Boolean = false
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -40,9 +43,26 @@ class MainActivity : ReactActivity() {
         updatePiPParams(trackingActive = false)
     }
 
+    override fun onResume() {
+        super.onResume()
+        isForeground = true
+        // Dismiss PiPActivity immediately if it is lingering while MainActivity is in foreground
+        try {
+            PiPActivity.instance?.finish()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to finish PiPActivity on resume", e)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isForeground = false
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         if (instance == this) instance = null
+        isForeground = false
     }
 
     override fun getMainComponentName(): String = "main"
@@ -115,6 +135,10 @@ class MainActivity : ReactActivity() {
         super.onUserLeaveHint()
         LocationService.pipRequested = false // consume any pending flag
 
+        if (RiderTrackingModule.isSuppressed) {
+            Log.d(TAG, "🔒 PiP suppressed — skipping onUserLeaveHint")
+            return
+        }
         if (!LocationService.isRunning) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 

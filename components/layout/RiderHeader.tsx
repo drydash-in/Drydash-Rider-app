@@ -10,6 +10,22 @@ export function RiderHeader() {
   const insets = useSafeAreaInsets();
   const { theme, isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
+  const lastNavTimeRef = React.useRef(0);
+
+  const handleOpenNotifications = () => {
+    const now = Date.now();
+    if (now - lastNavTimeRef.current < 800) return;
+    lastNavTimeRef.current = now;
+    router.navigate("/(rider)/notifications");
+  };
+
+  const handleOpenProfile = () => {
+    const now = Date.now();
+    if (now - lastNavTimeRef.current < 800) return;
+    lastNavTimeRef.current = now;
+    router.navigate("/(rider)/profile");
+  };
+
   const logoSource = isDark 
     ? require("../../assets/images/shiptos_red_logo_new.png") 
     : require("../../assets/images/shiptos_red_logo_new.png");
@@ -42,7 +58,7 @@ export function RiderHeader() {
       <View style={styles.right}>
         <TouchableOpacity 
           style={[styles.iconBtn, { backgroundColor: isDark ? "#1E293B" : "#F1F5F9" }]}
-          onPress={() => router.push("/(rider)/notifications")}
+          onPress={handleOpenNotifications}
         >
           <Ionicons
             name="notifications-outline"
@@ -71,7 +87,7 @@ export function RiderHeader() {
         {/* AVATAR */}
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => router.push("/(rider)/profile")}
+          onPress={handleOpenProfile}
           style={[styles.avatar, { backgroundColor: theme.primary }]}
         >
           <Text style={styles.avatarText}>{(user?.name || "R")?.slice(0, 1).toUpperCase()}</Text>
