@@ -32,10 +32,10 @@ export default function CaptureImageModal({
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!permission?.granted) {
+    if (visible && !permission?.granted) {
       requestPermission();
     }
-  }, [permission]);
+  }, [visible, permission]);
 
   const takePicture = async () => {
     if (!cameraRef.current) return;

@@ -223,6 +223,11 @@ class PiPActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (MainActivity.isForeground || RiderTrackingModule.isSuppressed) {
+            Log.d(TAG, "MainActivity is in foreground or PiP suppressed — finishing PiPActivity")
+            finish()
+            return
+        }
         // Enter PiP immediately on resume — the window is guaranteed to be
         // ready and attached at this point (unlike onCreate where it can fail silently).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isInPiP) {
@@ -273,14 +278,21 @@ class PiPActivity : AppCompatActivity() {
         Log.d(TAG, "PiP mode changed: $isInPictureInPictureMode")
 
         if (!isInPictureInPictureMode) {
+            if (isFinishing || isDestroyed || MainActivity.isForeground || RiderTrackingModule.isSuppressed) {
+                Log.d(TAG, "PiP dismissed and MainActivity is in foreground, finishing, or suppressed")
+                finish()
+                return
+            }
             // PiP was dismissed by the user (swiped away or expanded).
             // If tracking is still active, force re-enter PiP — rider CANNOT
             // dismiss the PiP card while location sharing is on.
             if (LocationService.isRunning) {
                 Log.d(TAG, "🔒 Tracking still active — re-entering PiP (non-dismissable)")
                 uiHandler.postDelayed({
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && LocationService.isRunning) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && LocationService.isRunning && !MainActivity.isForeground && !RiderTrackingModule.isSuppressed) {
                         enterPiPMode()
+                    } else if (MainActivity.isForeground || RiderTrackingModule.isSuppressed) {
+                        finish()
                     }
                 }, 300)
             } else {
@@ -297,6 +309,9 @@ class PiPActivity : AppCompatActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        if (MainActivity.isForeground || RiderTrackingModule.isSuppressed) {
+            return
+        }
         // Re-enter PiP when user navigates away
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isInPiP) {
             enterPiPMode()

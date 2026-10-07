@@ -77,6 +77,7 @@ export async function requestOverlayPermission(): Promise<boolean> {
 
 let _activeMiniWindow: 'pip' | 'overlay' | null = null;
 let _isCameraActive = false;
+let _isSuppressed = false;
 
 /**
  * Set whether a camera activity is currently active.
@@ -92,6 +93,26 @@ export function isCameraActive(): boolean {
 }
 
 /**
+ * Suppress PiP and floating overlay during internal screen transitions (e.g. Start Workflow).
+ */
+export async function setMiniWindowSuppressed(suppressed: boolean): Promise<void> {
+  _isSuppressed = suppressed;
+  console.log('[OverlayManager] Mini window suppressed set to:', suppressed);
+  if (suppressed) {
+    await hideMiniWindow();
+  }
+  try {
+    await RiderTrackingModule?.setPiPSuppressed?.(suppressed);
+  } catch (e) {
+    console.warn('[OverlayManager] setPiPSuppressed failed:', e);
+  }
+}
+
+export function isMiniWindowSuppressed(): boolean {
+  return _isSuppressed || _isCameraActive;
+}
+
+/**
  * Show a mini tracking window when the app moves to the background.
  *
  * Prefers PiP (Android 8+) → falls back to overlay → does nothing if neither
@@ -100,8 +121,8 @@ export function isCameraActive(): boolean {
 export async function showMiniWindow(): Promise<void> {
   if (Platform.OS !== 'android') return;
   if (_activeMiniWindow) return; // Already shown
-  if (_isCameraActive) {
-    console.log('[OverlayManager] Camera active — skipping mini window');
+  if (_isCameraActive || _isSuppressed) {
+    console.log('[OverlayManager] Camera active or suppressed — skipping mini window');
     return;
   }
 

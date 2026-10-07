@@ -4,6 +4,7 @@ import ConfirmModal from "@/components/Modals/ConfirmModal";
 import FollowupPickupModal from "@/components/Modals/FollowupPickupModal";
 import { useAuth } from "@/context/useAuth";
 import { openMapsNavigation } from "@/utils/navigationHelper";
+import { setMiniWindowSuppressed } from "@/services/OverlayManager";
 import { createFollowupPickupApi } from "@/services/api/followupPickup";
 import { socket } from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
@@ -89,6 +90,8 @@ interface OrderDetails {
   intransitImage?: string[];
   ready_for_delivery_images?: string[];
   isPaid?: boolean;
+  platform_type?: string;
+  appCustomerId?: string;
 }
 
 interface QrPaymentPayload {
@@ -203,6 +206,14 @@ export default function DeliveredOrderDetails() {
       xhr.send(null);
     });
 
+  const isWatiCustomer = (ord?: OrderDetails | null) => {
+    if (!ord) return false;
+    if (ord.platform_type) {
+      return String(ord.platform_type).toLowerCase().trim() === "wati";
+    }
+    return !ord.appCustomerId;
+  };
+
   const normalizePhoneForWhatsApp = (raw: any) => {
     if (!raw) return null;
     let digits = String(raw).replace(/\D/g, "");
@@ -213,6 +224,11 @@ export default function DeliveredOrderDetails() {
 
   const sendWhatsAppTemplateDelivered = async () => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const phone = normalizePhoneForWhatsApp(order?.contactNo);
       if (!phone) return false;
 
@@ -247,6 +263,11 @@ export default function DeliveredOrderDetails() {
     orderIdParam?: string,
   ) => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const phone = normalizePhoneForWhatsApp(order?.contactNo);
       if (!phone) return false;
 
@@ -280,6 +301,11 @@ export default function DeliveredOrderDetails() {
     chosenDate?: Date,
   ) => {
     try {
+      if (!isWatiCustomer(order)) {
+        console.log("Skipping Wati template - platform_type is not wati:", order?.platform_type);
+        return false;
+      }
+
       const rescheduleDate = chosenDate
         ? moment(chosenDate).format("MMMM Do YYYY")
         : moment(order?.rescheduledDate).format("MMMM Do YYYY");
@@ -707,6 +733,17 @@ export default function DeliveredOrderDetails() {
   };
 
   /* ===================== LIFECYCLE ===================== */
+
+  useEffect(() => {
+    setMiniWindowSuppressed(true);
+    const timer = setTimeout(() => {
+      setMiniWindowSuppressed(false);
+    }, 2500);
+    return () => {
+      clearTimeout(timer);
+      setMiniWindowSuppressed(false);
+    };
+  }, []);
 
   useEffect(() => {
     getOrderDetails();

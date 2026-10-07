@@ -3,6 +3,7 @@ import { useAuth } from "@/context/useAuth";
 import { useRiderData } from "@/context/RiderDataContext";
 import { VRPStop } from "@/services/api/vrpTripService";
 import { openMapsNavigation } from "@/utils/navigationHelper";
+import { setMiniWindowSuppressed } from "@/services/OverlayManager";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -83,6 +84,11 @@ export default function TasksScreen() {
 
   const handleStartTask = (stop: VRPStop) => {
     if (stop.type === "depot") return;
+    setMiniWindowSuppressed(true);
+    setTimeout(() => {
+      setMiniWindowSuppressed(false);
+    }, 2500);
+
     const targetId = stop.id || (stop as any)._id || "";
     if (stop.type === "pickup") {
       router.push({
