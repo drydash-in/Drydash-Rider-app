@@ -70,6 +70,7 @@ interface OrderLocation {
 interface OrderDetails {
   _id: string;
   order_id: string;
+  platform_type: string;
   customerName: string;
   contactNo: string;
   address: string;
@@ -111,6 +112,13 @@ export default function DeliveredOrderDetails() {
   const { activeTrip, checkIsTripStartedToday } = useRiderData();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<OrderDetails | null>(null);
+
+  const platformCheck = order?.platform_type
+
+  console.log('this is the platformCheck----->>>',platformCheck)
+
+
+  console.log("this is the orderss-->>",order)
 
   const matchedStop = activeTrip?.stops?.find(
     (s) => String(s.id) === String(orderId) || String((s as any)._id) === String(orderId)
@@ -337,6 +345,8 @@ export default function DeliveredOrderDetails() {
     }
   };
 
+  console.log("this is the order details====>>>>>>>>>>",order)
+
   const updateStatusTo = async (id: string | undefined, status: string) => {
     if (!id) return;
     try {
@@ -514,6 +524,11 @@ export default function DeliveredOrderDetails() {
       }
 
       await updateStatusTo(orderId, "delivered");
+
+      if(platformCheck === "app"){
+        console.log("i am caledddd")
+        await sendWhatsAppTemplateDelivered();
+      }
       // await sendWhatsAppTemplateDelivered();   // don't want to send whatsapp template for delivered flow as per new requirement
       await getOrderDetails();
       setShowFollowupPickupPrompt(true);
@@ -664,14 +679,17 @@ export default function DeliveredOrderDetails() {
 
       // 2️⃣ Send WhatsApp
       if (answered) {
-        // await sendWhatsAppTemplateRescheduleWithCall(
-        //   orderIdParam,
-        //   newDate ?? undefined,
-        // );  ///
+        if(platformCheck === "app"){
+          await sendWhatsAppTemplateRescheduleWithCall(
+          orderIdParam,
+          newDate ?? undefined,
+        ); 
+        }
         console.log("reschedule and customer picked the call");
       } else {
-        // await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
-        console.log("reschedule and customer did not pick the call");
+        if(platformCheck === "app"){
+          await sendWhatsAppTemplateRescheduleNoCall(orderIdParam);
+        }
       }
 
       // ✅ 3️⃣ Navigate back with completed order id
