@@ -111,7 +111,7 @@ export default function RiderProfile() {
 
         <TouchableOpacity
           style={styles.menuRow}
-          onPress={() => router.push("/(rider)/notifications")}
+          onPress={() => router.navigate("/(rider)/notifications")}
         >
           <View style={styles.menuLeft}>
             <View style={[styles.iconBg, { backgroundColor: theme.primarySoft }]}>
