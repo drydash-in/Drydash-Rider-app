@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useTheme } from "../../../../context/ThemeContext";
 import { getPickupSlotAndDelayInfo } from "@/utils/slotDelayHelper";
+import { API_RIDER_URL } from "@/constants/apiConfig";
 
 /* ---------- TYPES ---------- */
 type Pickup = {
@@ -23,7 +24,7 @@ type Pickup = {
   pickupDelay?: any;
 };
 
-const API_URL = "https://api.shiptos.com/api/v1/rider";
+const API_URL = API_RIDER_URL;
 
 /* ================= SCREEN ================= */
 

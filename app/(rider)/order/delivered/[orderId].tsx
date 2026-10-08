@@ -3,6 +3,12 @@ import CaptureImageModal from "@/components/Modals/CaptureImageModal";
 import ConfirmModal from "@/components/Modals/ConfirmModal";
 import FollowupPickupModal from "@/components/Modals/FollowupPickupModal";
 import { useAuth } from "@/context/useAuth";
+import {
+  API_AUTH_URL,
+  API_V1_BASE_URL,
+  WATI_BASE_URL,
+  WATI_TOKEN,
+} from "@/constants/apiConfig";
 import { openMapsNavigation } from "@/utils/navigationHelper";
 import { setMiniWindowSuppressed } from "@/services/OverlayManager";
 import { createFollowupPickupApi } from "@/services/api/followupPickup";
@@ -170,11 +176,10 @@ export default function DeliveredOrderDetails() {
   const { theme, isDark } = useTheme();
   const { user } = useAuth();
 
-  const API_URL = "https://api.shiptos.com/api/v1/auth";
-  const base_url = "https://api.shiptos.com/api/v1";
-  const wattiUri = "https://live-server-101289.wati.io/api/v1";
-  const token =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImF5dXNoc2luZ2g4NDIwMThAZ21haWwuY29tIiwibmFtZWlkIjoiYXl1c2hzaW5naDg0MjAxOEBnbWFpbC5jb20iLCJlbWFpbCI6ImF5dXNoc2luZ2g4NDIwMThAZ21haWwuY29tIiwiYXV0aF90aW1lIjoiMTIvMDgvMjAyNSAwNzoyMzo1MyIsInRlbmFudF9pZCI6IjEwMTI4OSIsImRiX25hbWUiOiJtdC1wcm9kLVRlbmFudHMiLCJodHRwOi8vc2NoZW1hcy5taWNyb3NvZnQuY29tL3dzLzIwMDgvMDYvaWRlbnRpdHkvY2xhaW1zL3JvbGUiOlsiVEVNUExBVEVfTUFOQUdFUiIsIkRFVkVMT1BFUiIsIkFVVE9NQVRJT05fTUFOQUdFUiJdLCJleHAiOjI1MzQwMjMwMDgwMCwiaXNzIjoiQ2xhcmVfQUkiLCJhdWQiOiJDbGFyZV9BSSJ9.NpVe1fi-RXRuNgCAGzFQLZT6dE7Y-rvlx1SYxLKZ_m4";
+  const API_URL = API_AUTH_URL;
+  const base_url = API_V1_BASE_URL;
+  const wattiUri = WATI_BASE_URL;
+  const token = WATI_TOKEN;
   const successGreen = "#22C55E";
   const paymentSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,

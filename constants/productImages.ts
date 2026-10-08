@@ -1,7 +1,7 @@
 // constants/productImages.ts
+import { S3_IMAGES_BASE_URL } from "./apiConfig";
 
-const S3_BASE =
-  "https://drydash-app-images.s3.ap-south-1.amazonaws.com/rider-images/washrzimages/";
+const S3_BASE = S3_IMAGES_BASE_URL;
 
 export const productImages: Record<string, any> = {
   /* ===================== LAUNDRY ===================== */

@@ -269,7 +269,7 @@ export const NotificationProvider = ({
     const fetchLatest = async () => {
       try {
         const res = await fetch(
-          `https://api.shiptos.com/api/v1/notifications/${user._id}`,
+          `${API_V1_BASE_URL}/notifications/${user._id}`,
         );
 
         const data = await res.json();

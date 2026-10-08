@@ -1,3 +1,5 @@
+import { API_V1_BASE_URL } from "@/constants/apiConfig";
+
 interface CreateFollowupPickupParams {
   apiBaseUrl?: string;
   orderId: string;
@@ -5,7 +7,7 @@ interface CreateFollowupPickupParams {
   riderName: string;
 }
 
-const DEFAULT_API_BASE = "https://api.shiptos.com/api/v1";
+const DEFAULT_API_BASE = API_V1_BASE_URL;
 
 export const createFollowupPickupApi = async ({
   apiBaseUrl = DEFAULT_API_BASE,

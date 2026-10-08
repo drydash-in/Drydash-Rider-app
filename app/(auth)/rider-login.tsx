@@ -16,8 +16,9 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../../context/ThemeContext";
+import { API_AUTH_URL } from "@/constants/apiConfig";
 
-const API_URL = "https://api.shiptos.com/api/v1/auth";
+const API_URL = API_AUTH_URL;
 
 export default function RiderLogin() {
   const { theme } = useTheme();

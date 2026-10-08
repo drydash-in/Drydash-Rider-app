@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_BASE_URL = "https://api.shiptos.com";
+import { API_BASE_URL } from "@/constants/apiConfig";
 
 export const getBatchDistances = async (
   origin: { lat: number; lng: number },

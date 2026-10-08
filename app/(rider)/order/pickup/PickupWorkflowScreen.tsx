@@ -34,8 +34,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../../../context/ThemeContext";
 import { getPickupSlotAndDelayInfo } from "@/utils/slotDelayHelper";
+import { API_V1_BASE_URL } from "@/constants/apiConfig";
 
-const API_URL = "https://api.shiptos.com/api/v1";
+const API_URL = API_V1_BASE_URL;
 const PAGE_LIMIT = 100;
 
 const SERVICE_OPTIONS = [

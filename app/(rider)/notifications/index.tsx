@@ -13,8 +13,9 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../../../context/ThemeContext";
+import { API_V1_BASE_URL } from "@/constants/apiConfig";
 
-const API_URL = "https://api.shiptos.com/api/v1";
+const API_URL = API_V1_BASE_URL;
 
 export default function Notifications() {
   const { user } = useAuth();

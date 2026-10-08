@@ -10,12 +10,13 @@ import {
 
 import { locationService } from "@/services/locationService";
 import { trackingLegService } from "@/services/trackingLegService";
+import { API_AUTH_URL } from "@/constants/apiConfig";
 
 /* =====================================================
    CONFIG
 ===================================================== */
 
-const API_URL = "https://api.shiptos.com/api/v1/auth";
+const API_URL = API_AUTH_URL;
 
 const USER_KEY = "DRYDASH_RIDER_USER";
 const TOKEN_KEY = "DRYDASH_RIDER_TOKEN";

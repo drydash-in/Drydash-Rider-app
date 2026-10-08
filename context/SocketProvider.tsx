@@ -3,6 +3,7 @@ import { useRiderData } from "@/context/RiderDataContext";
 import { useAuth } from "@/context/useAuth";
 import { playNotificationSound } from "@/services/notificationSound";
 import { socket } from "@/services/socket";
+import { API_RIDER_URL, API_V1_BASE_URL } from "@/constants/apiConfig";
 import { useEffect } from "react";
 import { AppState, InteractionManager } from "react-native";
 
@@ -10,8 +11,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const { notify } = useNotification();
   const { setPickups, setDeliveries, refreshActiveTrip } = useRiderData();
-  const API_URL = "https://api.shiptos.com/api/v1/rider";
-  const API_URL_ORDER = "https://api.shiptos.com/api/v1";
+  const API_URL = API_RIDER_URL;
+  const API_URL_ORDER = API_V1_BASE_URL;
 
   const getPickups = async () => {
     if (!user?.email) return;
