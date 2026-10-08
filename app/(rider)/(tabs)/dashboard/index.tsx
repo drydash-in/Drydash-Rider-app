@@ -29,6 +29,10 @@ import { VRPStop } from "@/services/api/vrpTripService";
 import { openMapsNavigation } from "@/utils/navigationHelper";
 import { API_V1_BASE_URL } from "@/constants/apiConfig";
 import { setCameraActive, openOverlaySettingsDirectly, setMiniWindowSuppressed } from "@/services/OverlayManager";
+import {
+  getPickupSlotAndDelayInfo,
+  getDeliverySlotAndDelayInfo,
+} from "@/utils/slotDelayHelper";
 
 const { height } = Dimensions.get("window");
 
@@ -958,94 +962,123 @@ export default function Dashboard() {
       )}
 
       {/* CURRENT ACTIVE TASK CARD WITH ADDRESS */}
-      {currentTask && (
-        <View style={styles.sectionContainer}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Current Active Task
-          </Text>
+      {currentTask && (() => {
+        const isPickup = currentTask.type === "pickup";
+        const slotInfo = isPickup
+          ? getPickupSlotAndDelayInfo(currentTask)
+          : getDeliverySlotAndDelayInfo(currentTask);
 
-          <View
-            style={[
-              styles.taskCard,
-              {
-                backgroundColor: taskIsDone
-                  ? isDark
-                    ? "#1E293B"
-                    : "#F1F5F9"
-                  : theme.card,
-                borderColor: taskIsDone ? "#CBD5E1" : theme.border,
-                opacity: taskIsDone ? 0.65 : 1,
-              },
-            ]}
-          >
-            <View style={styles.taskCardHeader}>
-              <View style={styles.badgeRow}>
-                <View
-                  style={[
-                    styles.sequenceBadge,
-                    { backgroundColor: taskIsDone ? "#64748B" : theme.primary },
-                  ]}
-                >
-                  <Text style={styles.sequenceText}>
-                    #{currentTask.index || 1}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.typeBadge,
-                    {
-                      backgroundColor: taskIsDone
-                        ? "#E2E8F0"
-                        : theme.primarySoft,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.typeBadgeText,
-                      { color: taskIsDone ? "#64748B" : theme.primary },
-                    ]}
-                  >
-                    {currentTask.type.toUpperCase()}
-                  </Text>
-                </View>
-              </View>
+        return (
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Current Active Task
+            </Text>
 
-              {taskIsDone ? (
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={18}
-                    color={theme.success}
-                  />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "800",
-                      color: theme.success,
-                    }}
-                  >
-                    COMPLETED
-                  </Text>
-                </View>
-              ) : currentTask.price > 0 ? (
-                <Text style={[styles.taskPrice, { color: theme.primary }]}>
-                  {currentTask.type === "pickup" ? "Estimated :" : "Collect :"} ₹
-                  {currentTask.price.toLocaleString("en-IN")}
-                </Text>
-              ) : null}
-            </View>
-
-            <Text
+            <View
               style={[
-                styles.taskName,
-                { color: taskIsDone ? theme.subText : theme.text },
+                styles.taskCard,
+                {
+                  backgroundColor: taskIsDone
+                    ? isDark
+                      ? "#1E293B"
+                      : "#F1F5F9"
+                    : theme.card,
+                  borderColor: slotInfo.isDelayed && !taskIsDone ? "#EF4444" : (taskIsDone ? "#CBD5E1" : theme.border),
+                  opacity: taskIsDone ? 0.65 : 1,
+                },
               ]}
             >
-              {currentTask.name}
-            </Text>
+              <View style={styles.taskCardHeader}>
+                <View style={styles.badgeRow}>
+                  <View
+                    style={[
+                      styles.sequenceBadge,
+                      { backgroundColor: taskIsDone ? "#64748B" : theme.primary },
+                    ]}
+                  >
+                    <Text style={styles.sequenceText}>
+                      #{currentTask.index || 1}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.typeBadge,
+                      {
+                        backgroundColor: taskIsDone
+                          ? "#E2E8F0"
+                          : theme.primarySoft,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.typeBadgeText,
+                        { color: taskIsDone ? "#64748B" : theme.primary },
+                      ]}
+                    >
+                      {currentTask.type.toUpperCase()}
+                    </Text>
+                  </View>
+
+                  {slotInfo.isDelayed && !taskIsDone && (
+                    <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                      <Text style={{ fontSize: 10, fontWeight: "800", color: "#DC2626" }}>
+                        {slotInfo.delayText || "DELAYED"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {taskIsDone ? (
+                  <View
+                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                  >
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color={theme.success}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: "800",
+                        color: theme.success,
+                      }}
+                    >
+                      COMPLETED
+                    </Text>
+                  </View>
+                ) : currentTask.price > 0 ? (
+                  <Text style={[styles.taskPrice, { color: theme.primary }]}>
+                    {currentTask.type === "pickup" ? "Estimated :" : "Collect :"} ₹
+                    {currentTask.price.toLocaleString("en-IN")}
+                  </Text>
+                ) : null}
+              </View>
+
+              <Text
+                style={[
+                  styles.taskName,
+                  { color: taskIsDone ? theme.subText : theme.text },
+                ]}
+              >
+                {currentTask.name}
+              </Text>
+
+              {slotInfo.slotText && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8, backgroundColor: slotInfo.isDelayed && !taskIsDone ? (isDark ? "#3B0707" : "#FEF2F2") : (isDark ? "#1E293B" : "#F8FAFC"), paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                  <Ionicons name="time-outline" size={15} color={slotInfo.isDelayed && !taskIsDone ? "#EF4444" : theme.primary} />
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: slotInfo.isDelayed && !taskIsDone ? "#EF4444" : theme.text }}>
+                    {isPickup ? "Pickup Slot:" : "Delivery Slot:"} {slotInfo.slotText}
+                  </Text>
+                  {slotInfo.reason && (
+                    <Text style={{ fontSize: 11, color: theme.subText }} numberOfLines={1}>
+                      ({slotInfo.reason})
+                    </Text>
+                  )}
+                </View>
+              )}
 
             {/* ENHANCED ADDRESS DISPLAY */}
             <View
@@ -1131,7 +1164,8 @@ export default function Dashboard() {
             </View>
           </View>
         </View>
-      )}
+      );
+    })()}
 
       {/* MODALS */}
       {/* {renderTrackingGuide()} */}

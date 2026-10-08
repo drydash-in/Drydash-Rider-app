@@ -17,6 +17,10 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../../../../context/ThemeContext";
+import {
+  getPickupSlotAndDelayInfo,
+  getDeliverySlotAndDelayInfo,
+} from "@/utils/slotDelayHelper";
 
 export default function TasksScreen() {
   const { theme, isDark } = useTheme();
@@ -161,74 +165,103 @@ export default function TasksScreen() {
       )}
 
       {/* SECTION: CURRENT TASK */}
-      {currentTask && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionHeading, { color: theme.text }]}>Current Task</Text>
+      {currentTask && (() => {
+        const isPickup = currentTask.type === "pickup";
+        const slotInfo = isPickup
+          ? getPickupSlotAndDelayInfo(currentTask)
+          : getDeliverySlotAndDelayInfo(currentTask);
+        return (
+          <View style={styles.section}>
+            <Text style={[styles.sectionHeading, { color: theme.text }]}>Current Task</Text>
 
-          <View
-            style={[
-              styles.currentTaskCard,
-              {
-                backgroundColor: theme.card,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.badgeRow}>
-                <View style={[styles.seqBadge, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.seqText}>#{currentTask.index}</Text>
+            <View
+              style={[
+                styles.currentTaskCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: slotInfo.isDelayed ? "#EF4444" : theme.border,
+                },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.badgeRow}>
+                  <View style={[styles.seqBadge, { backgroundColor: theme.primary }]}>
+                    <Text style={styles.seqText}>#{currentTask.index}</Text>
+                  </View>
+                  <View style={[styles.typeBadge, { backgroundColor: theme.primarySoft }]}>
+                    <Text style={[styles.typeBadgeText, { color: theme.primary }]}>
+                      {currentTask.type.toUpperCase()}
+                    </Text>
+                  </View>
+                  {slotInfo.isDelayed && (
+                    <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                      <Text style={{ fontSize: 10, fontWeight: "800", color: "#DC2626" }}>
+                        {slotInfo.delayText || "DELAYED"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                <View style={[styles.typeBadge, { backgroundColor: theme.primarySoft }]}>
-                  <Text style={[styles.typeBadgeText, { color: theme.primary }]}>
-                    {currentTask.type.toUpperCase()}
+
+                {currentTask.price > 0 && (
+                  <Text style={[styles.priceTag, { color: theme.primary }]}>
+                    {currentTask.type === "pickup" ? "Estimated :" : "Collect :"} ₹{currentTask.price.toLocaleString("en-IN")}
                   </Text>
-                </View>
+                )}
               </View>
 
-              {currentTask.price > 0 && (
-                <Text style={[styles.priceTag, { color: theme.primary }]}>
-                  {currentTask.type === "pickup" ? "Estimated :" : "Collect :"} ₹{currentTask.price.toLocaleString("en-IN")}
-                </Text>
+              <Text style={[styles.customerName, { color: theme.text }]}>{currentTask.name}</Text>
+
+              {/* SLOT AND DELAY BADGE */}
+              {slotInfo.slotText && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8, backgroundColor: slotInfo.isDelayed ? (isDark ? "#3B0707" : "#FEF2F2") : (isDark ? "#1E293B" : "#F8FAFC"), paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}>
+                  <Ionicons name="time-outline" size={15} color={slotInfo.isDelayed ? "#EF4444" : theme.primary} />
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: slotInfo.isDelayed ? "#EF4444" : theme.text }}>
+                    {isPickup ? "Pickup Slot:" : "Delivery Slot:"} {slotInfo.slotText}
+                  </Text>
+                  {slotInfo.reason && (
+                    <Text style={{ fontSize: 11, color: theme.subText }} numberOfLines={1}>
+                      ({slotInfo.reason})
+                    </Text>
+                  )}
+                </View>
               )}
-            </View>
+              
+              {/* ENHANCED ADDRESS DISPLAY */}
+              <View style={[styles.addressBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                <Ionicons name="location" size={16} color={theme.primary} style={{ marginTop: 2 }} />
+                <Text style={[styles.addressText, { color: theme.text }]} numberOfLines={2}>
+                  {currentTask.address || `Stop #${currentTask.index} Location Address`}
+                </Text>
+              </View>
 
-            <Text style={[styles.customerName, { color: theme.text }]}>{currentTask.name}</Text>
-            
-            {/* ENHANCED ADDRESS DISPLAY */}
-            <View style={[styles.addressBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
-              <Ionicons name="location" size={16} color={theme.primary} style={{ marginTop: 2 }} />
-              <Text style={[styles.addressText, { color: theme.text }]} numberOfLines={2}>
-                {currentTask.address || `Stop #${currentTask.index} Location Address`}
-              </Text>
-            </View>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.callBtn, { borderColor: theme.border }]}
+                  onPress={() => handleCall(currentTask.contact)}
+                >
+                  <Ionicons name="call-outline" size={18} color={theme.primary} />
+                </TouchableOpacity>
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.callBtn, { borderColor: theme.border }]}
-                onPress={() => handleCall(currentTask.contact)}
-              >
-                <Ionicons name="call-outline" size={18} color={theme.primary} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.callBtn, { borderColor: theme.border, backgroundColor: theme.primarySoft }]}
+                  onPress={() => openMapsNavigation(currentTask.lat, currentTask.lng, currentTask.address, currentTask.name)}
+                >
+                  <Ionicons name="navigate-outline" size={18} color={theme.primary} />
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.callBtn, { borderColor: theme.border, backgroundColor: theme.primarySoft }]}
-                onPress={() => openMapsNavigation(currentTask.lat, currentTask.lng, currentTask.address, currentTask.name)}
-              >
-                <Ionicons name="navigate-outline" size={18} color={theme.primary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.startBtn, { backgroundColor: theme.primary }]}
-                onPress={() => handleStartTask(currentTask)}
-              >
-                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                <Text style={styles.startBtnText}>Start Workflow</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.startBtn, { backgroundColor: theme.primary }]}
+                  onPress={() => handleStartTask(currentTask)}
+                >
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                  <Text style={styles.startBtnText}>Start Workflow</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* SECTION: REMAINING TASKS TIMELINE */}
       {remainingStops.length > 0 && (
@@ -238,6 +271,11 @@ export default function TasksScreen() {
           <View style={styles.timelineList}>
             {(showAllRemaining ? remainingStops : remainingStops.slice(0, 2)).map((stop, idx) => {
               const stopDone = isDone(stop);
+              const isPickup = stop.type === "pickup";
+              const slotInfo = isPickup
+                ? getPickupSlotAndDelayInfo(stop)
+                : getDeliverySlotAndDelayInfo(stop);
+
               return (
                 <TouchableOpacity
                   key={`${stop.id}_${idx}`}
@@ -245,7 +283,7 @@ export default function TasksScreen() {
                     styles.timelineCard,
                     {
                       backgroundColor: stopDone ? (isDark ? "#1E293B" : "#F1F5F9") : theme.card,
-                      borderColor: stopDone ? "#CBD5E1" : theme.border,
+                      borderColor: slotInfo.isDelayed && !stopDone ? "#EF4444" : (stopDone ? "#CBD5E1" : theme.border),
                       opacity: stopDone ? 0.65 : 1,
                     },
                   ]}
@@ -278,6 +316,14 @@ export default function TasksScreen() {
                           {stop.type.toUpperCase()}
                         </Text>
                       </View>
+                      {slotInfo.isDelayed && !stopDone && (
+                        <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 10, flexDirection: "row", alignItems: "center", gap: 3 }}>
+                          <Ionicons name="alert-circle" size={11} color="#DC2626" />
+                          <Text style={{ fontSize: 9, fontWeight: "800", color: "#DC2626" }}>
+                            {slotInfo.delayText || "DELAYED"}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     {stopDone ? (
                       <Ionicons name="checkmark-circle" size={16} color={theme.success} />
@@ -291,6 +337,15 @@ export default function TasksScreen() {
                   <Text style={[styles.customerName, { color: stopDone ? theme.subText : theme.text }]}>
                     {stop.name}
                   </Text>
+
+                  {slotInfo.slotText && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                      <Ionicons name="time-outline" size={12} color={slotInfo.isDelayed && !stopDone ? "#EF4444" : theme.subText} />
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: slotInfo.isDelayed && !stopDone ? "#EF4444" : theme.subText }}>
+                        Slot: {slotInfo.slotText}
+                      </Text>
+                    </View>
+                  )}
                   
                   {/* ENHANCED ADDRESS DISPLAY */}
                   <View style={[styles.addressBoxSmall, { backgroundColor: theme.background }]}>
@@ -366,48 +421,63 @@ export default function TasksScreen() {
             </Text>
           </View>
 
-          {completedStops.map((stop, idx) => (
-            <TouchableOpacity
-              key={`comp_${stop.id}_${idx}`}
-              style={[
-                styles.completedCard,
-                {
-                  backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
-                },
-              ]}
-              onPress={() => handleStartTask(stop)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="checkmark-circle" size={22} color={theme.success} />
-              <View style={{ flex: 1, gap: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <Text style={[styles.completedText, { color: theme.text }]}>
-                    #{stop.index} — {stop.name}
-                  </Text>
-                  <View style={[styles.typeBadge, { backgroundColor: theme.primarySoft }]}>
-                    <Text style={[styles.typeBadgeText, { color: theme.primary }]}>
-                      {stop.type.toUpperCase()}
+          {completedStops.map((stop, idx) => {
+            const isPickup = stop.type === "pickup";
+            const slotInfo = isPickup
+              ? getPickupSlotAndDelayInfo(stop)
+              : getDeliverySlotAndDelayInfo(stop);
+
+            return (
+              <TouchableOpacity
+                key={`comp_${stop.id}_${idx}`}
+                style={[
+                  styles.completedCard,
+                  {
+                    backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                    borderColor: isDark ? "#334155" : "#E2E8F0",
+                  },
+                ]}
+                onPress={() => handleStartTask(stop)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="checkmark-circle" size={22} color={theme.success} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <Text style={[styles.completedText, { color: theme.text }]}>
+                      #{stop.index} — {stop.name}
                     </Text>
+                    <View style={[styles.typeBadge, { backgroundColor: theme.primarySoft }]}>
+                      <Text style={[styles.typeBadgeText, { color: theme.primary }]}>
+                        {stop.type.toUpperCase()}
+                      </Text>
+                    </View>
                   </View>
+                  {slotInfo.slotText && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="time-outline" size={12} color={theme.subText} />
+                      <Text style={{ fontSize: 11, color: theme.subText }}>
+                        Slot: {slotInfo.slotText}
+                      </Text>
+                    </View>
+                  )}
+                  {stop.address && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="location-outline" size={12} color={theme.subText} />
+                      <Text style={{ fontSize: 12, color: theme.subText }} numberOfLines={1}>
+                        {stop.address}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                {stop.address && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <Ionicons name="location-outline" size={12} color={theme.subText} />
-                    <Text style={{ fontSize: 12, color: theme.subText }} numberOfLines={1}>
-                      {stop.address}
-                    </Text>
+                <View style={{ alignItems: "flex-end", gap: 2 }}>
+                  <View style={styles.completedStatusBadge}>
+                    <Text style={styles.completedStatusBadgeText}>COMPLETED</Text>
                   </View>
-                )}
-              </View>
-              <View style={{ alignItems: "flex-end", gap: 2 }}>
-                <View style={styles.completedStatusBadge}>
-                  <Text style={styles.completedStatusBadgeText}>COMPLETED</Text>
+                  <Ionicons name="chevron-forward" size={16} color={theme.muted} />
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={theme.muted} />
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 

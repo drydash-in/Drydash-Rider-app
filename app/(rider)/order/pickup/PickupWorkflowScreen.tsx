@@ -33,6 +33,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../../../context/ThemeContext";
+import { getPickupSlotAndDelayInfo } from "@/utils/slotDelayHelper";
 
 const API_URL = "https://api.shiptos.com/api/v1";
 const PAGE_LIMIT = 100;
@@ -1133,6 +1134,66 @@ export default function PickupWorkflowScreen({
             <Text style={[styles.orderCode, { color: theme.text }]}>
               {pickup?.Name || "Pickup details"}
             </Text>
+
+            {(() => {
+              const slotInfo = getPickupSlotAndDelayInfo(pickup);
+              if (!slotInfo.slotText && !slotInfo.isDelayed) return null;
+              return (
+                <View
+                  style={{
+                    backgroundColor: slotInfo.isDelayed
+                      ? (isDark ? "#3B0707" : "#FEF2F2")
+                      : (isDark ? "#1E293B" : "#F0FDF4"),
+                    borderColor: slotInfo.isDelayed ? "#FCA5A5" : (isDark ? "#334155" : "#BBF7D0"),
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginTop: 8,
+                    marginBottom: 12,
+                    gap: 6,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons
+                        name="time-outline"
+                        size={16}
+                        color={slotInfo.isDelayed ? "#DC2626" : "#16A34A"}
+                      />
+                      <Text style={{ fontSize: 13, fontWeight: "800", color: slotInfo.isDelayed ? "#DC2626" : "#15803D" }}>
+                        Scheduled Pickup Slot
+                      </Text>
+                    </View>
+                    {slotInfo.isDelayed && (
+                      <View style={{ backgroundColor: "#DC2626", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
+                        <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "900" }}>
+                          {slotInfo.delayText || "DELAYED"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: theme.text }}>
+                    {slotInfo.slotText}
+                  </Text>
+
+                  {slotInfo.isDelayed && (
+                    <View style={{ marginTop: 2, gap: 4 }}>
+                      {slotInfo.originalSlotText && slotInfo.revisedSlotText && slotInfo.originalSlotText !== slotInfo.revisedSlotText && (
+                        <Text style={{ fontSize: 11, color: "#991B1B" }}>
+                          Original Slot: <Text style={{ textDecorationLine: "line-through" }}>{slotInfo.originalSlotText}</Text> ➜ Revised: <Text style={{ fontWeight: "800" }}>{slotInfo.revisedSlotText}</Text>
+                        </Text>
+                      )}
+                      {slotInfo.reason && (
+                        <Text style={{ fontSize: 11, color: "#991B1B" }}>
+                          Reason for delay: <Text style={{ fontWeight: "700" }}>{slotInfo.reason}</Text>
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
 
             <View style={styles.actionGrid}>
               {/* ROW 1: Quick Communication & Navigation */}

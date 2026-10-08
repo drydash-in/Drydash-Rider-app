@@ -33,6 +33,7 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../../../../context/ThemeContext";
+import { getDeliverySlotAndDelayInfo } from "@/utils/slotDelayHelper";
 
 /* ===================== INTERFACES ===================== */
 
@@ -90,7 +91,6 @@ interface OrderDetails {
   intransitImage?: string[];
   ready_for_delivery_images?: string[];
   isPaid?: boolean;
-  platform_type?: string;
   appCustomerId?: string;
 }
 
@@ -1150,6 +1150,66 @@ export default function DeliveredOrderDetails() {
           value={moment(order.updatedAt).format("DD MMM, hh:mm A")}
           theme={theme}
         />
+
+        {(() => {
+          const slotInfo = getDeliverySlotAndDelayInfo(order);
+          if (!slotInfo.slotText && !slotInfo.isDelayed) return null;
+          return (
+            <View
+              style={{
+                backgroundColor: slotInfo.isDelayed
+                  ? (isDark ? "#3B0707" : "#FEF2F2")
+                  : (isDark ? "#1E293B" : "#F0FDF4"),
+                borderColor: slotInfo.isDelayed ? "#FCA5A5" : (isDark ? "#334155" : "#BBF7D0"),
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                marginTop: 8,
+                marginBottom: 12,
+                gap: 6,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={slotInfo.isDelayed ? "#DC2626" : "#16A34A"}
+                  />
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: slotInfo.isDelayed ? "#DC2626" : "#15803D" }}>
+                    Scheduled Delivery Slot
+                  </Text>
+                </View>
+                {slotInfo.isDelayed && (
+                  <View style={{ backgroundColor: "#DC2626", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "900" }}>
+                      {slotInfo.delayText || "DELAYED"}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={{ fontSize: 14, fontWeight: "700", color: theme.text }}>
+                {slotInfo.slotText}
+              </Text>
+
+              {slotInfo.isDelayed && (
+                <View style={{ marginTop: 2, gap: 4 }}>
+                  {slotInfo.originalSlotText && slotInfo.revisedSlotText && slotInfo.originalSlotText !== slotInfo.revisedSlotText && (
+                    <Text style={{ fontSize: 11, color: "#991B1B" }}>
+                      Original Slot: <Text style={{ textDecorationLine: "line-through" }}>{slotInfo.originalSlotText}</Text> ➜ Estimated: <Text style={{ fontWeight: "800" }}>{slotInfo.revisedSlotText}</Text>
+                    </Text>
+                  )}
+                  {slotInfo.reason && (
+                    <Text style={{ fontSize: 11, color: "#991B1B" }}>
+                      Reason for delay: <Text style={{ fontWeight: "700" }}>{slotInfo.reason}</Text>
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })()}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: "#10B981" }]}

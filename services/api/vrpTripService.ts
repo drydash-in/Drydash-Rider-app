@@ -16,6 +16,14 @@ export type VRPStop = {
   completed?: boolean;
   address?: string;
   contact?: string;
+  slot?: string;
+  pickupDate?: string;
+  deliveryDate?: string;
+  pickupDelay?: any;
+  deliveryEstimation?: any;
+  isRescheduled?: boolean;
+  rescheduledDate?: string;
+  raw?: any;
 };
 
 export type VRPRiderInfo = {
@@ -139,6 +147,13 @@ export const vrpTripService = {
           completed: isDone,
           address: p.Address || p.deliveryAddress || "Pickup Location Address",
           contact: p.Contact || p.contactPhone || "",
+          slot: p.slot || p.pickupDelay?.revisedSlot || p.pickupDelay?.originalSlot || undefined,
+          pickupDate: p.pickup_date || undefined,
+          pickupDelay: p.pickupDelay || undefined,
+          deliveryEstimation: p.deliveryEstimation || undefined,
+          isRescheduled: p.isRescheduled || false,
+          rescheduledDate: p.rescheduledDate || undefined,
+          raw: p,
         });
       });
 
@@ -165,6 +180,12 @@ export const vrpTripService = {
           completed: isDone,
           address: d.address || d.Address || "Delivery Location Address",
           contact: d.contactNo || d.Contact || "",
+          slot: d.deliveryTimeSlot || d.slot || d.deliveryEstimation?.estimatedDeliveryTime || undefined,
+          deliveryDate: d.deliveryDate || undefined,
+          deliveryEstimation: d.deliveryEstimation || undefined,
+          isRescheduled: d.isRescheduled || false,
+          rescheduledDate: d.rescheduledDate || undefined,
+          raw: d,
         });
       });
 

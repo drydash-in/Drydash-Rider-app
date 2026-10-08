@@ -12,12 +12,15 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../../../../context/ThemeContext";
+import { getPickupSlotAndDelayInfo } from "@/utils/slotDelayHelper";
 
 /* ---------- TYPES ---------- */
 type Pickup = {
   _id: string;
   Name: string;
   Address: string;
+  slot?: string;
+  pickupDelay?: any;
 };
 
 const API_URL = "https://api.shiptos.com/api/v1/rider";
@@ -55,6 +58,7 @@ export default function Pickup() {
         setPickups([
           ...data.Pickups.map((el: any) => {
             return {
+              ...el,
               _id: el?._id,
               Name: el?.Name,
               Address: el.Address,
@@ -274,99 +278,39 @@ export default function Pickup() {
         </View>
       )}
 
-      {activePickups.map((item: any) => (
-        <View key={item._id}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={[
-              styles.card,
-              { backgroundColor: theme.card, borderColor: theme.border },
-            ]}
-            onPress={() =>
-              router.push(`/(rider)/order/pickup/navigation/${item._id}`)
-            }
-          >
-            <View style={styles.iconWrap}>
-              <Ionicons name="location" size={20} color={theme.primary} />
-            </View>
-
-            <View style={styles.cardBody}>
-              <Text style={[styles.orderId, { color: theme.primary }]}>
-                {item._id
-                  ? `WZP-${item._id.slice(-5)}`.toUpperCase()
-                  : "WZP-----"}
-              </Text>
-
-              <Text style={[styles.name, { color: theme.subText }]}>
-                {item.Name || "Customer"}
-              </Text>
-
-              <View style={styles.addressRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={14}
-                  color={theme.subText}
-                />
-                <Text
-                  style={[styles.address, { color: theme.subText }]}
-                  numberOfLines={2}
-                >
-                  {item.Address || "Address not available"}
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[styles.actionBtn, { backgroundColor: theme.primary }]}
-            >
-              <Ionicons name="chevron-forward" size={18} color="#000" />
-            </View>
-          </TouchableOpacity>
-        </View>
-      ))}
-
-      {/* COMPLETED PICKUPS SECTION AT BOTTOM */}
-      {completedPickups.length > 0 && (
-        <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
-          <View style={[styles.sectionHeader, { paddingHorizontal: 0, marginBottom: 12 }]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="checkmark-circle-outline" size={20} color={theme.success} />
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Completed Pickups ({completedPickups.length})
-              </Text>
-            </View>
-          </View>
-
-          {completedPickups.map((item: any) => (
+      {activePickups.map((item: any) => {
+        const slotInfo = getPickupSlotAndDelayInfo(item);
+        return (
+          <View key={item._id}>
             <TouchableOpacity
-              key={`comp_${item._id}`}
-              activeOpacity={0.8}
+              activeOpacity={0.9}
               style={[
                 styles.card,
-                {
-                  marginHorizontal: 0,
-                  backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
-                  borderColor: isDark ? "#334155" : "#E2E8F0",
-                },
+                { backgroundColor: theme.card, borderColor: slotInfo.isDelayed ? "#EF4444" : theme.border },
               ]}
               onPress={() =>
-                router.push(`/(rider)/order/pickup/[orderId]?orderId=${item._id}`)
+                router.push(`/(rider)/order/pickup/navigation/${item._id}`)
               }
             >
-              <View style={[styles.iconWrap, { backgroundColor: "#DCFCE7" }]}>
-                <Ionicons name="checkmark-circle" size={22} color={theme.success} />
+              <View style={styles.iconWrap}>
+                <Ionicons name="location" size={20} color={theme.primary} />
               </View>
 
               <View style={styles.cardBody}>
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={[styles.orderId, { color: theme.text }]}>
+                  <Text style={[styles.orderId, { color: theme.primary }]}>
                     {item._id
                       ? `WZP-${item._id.slice(-5)}`.toUpperCase()
                       : "WZP-----"}
                   </Text>
-                  <Text style={{ fontSize: 11, fontWeight: "900", color: theme.success }}>
-                    COMPLETED
-                  </Text>
+                  {slotInfo.isDelayed && (
+                    <View style={{ backgroundColor: "#FEE2E2", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                      <Text style={{ fontSize: 10, fontWeight: "800", color: "#DC2626" }}>
+                        {slotInfo.delayText || "DELAYED"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <Text style={[styles.name, { color: theme.subText }]}>
@@ -381,18 +325,117 @@ export default function Pickup() {
                   />
                   <Text
                     style={[styles.address, { color: theme.subText }]}
-                    numberOfLines={1}
+                    numberOfLines={2}
                   >
                     {item.Address || "Address not available"}
                   </Text>
                 </View>
+
+                {slotInfo.slotText && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, backgroundColor: slotInfo.isDelayed ? (isDark ? "#3B0707" : "#FEF2F2") : (isDark ? "#1E293B" : "#F8FAFC"), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                    <Ionicons name="time-outline" size={13} color={slotInfo.isDelayed ? "#EF4444" : theme.primary} />
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: slotInfo.isDelayed ? "#EF4444" : theme.text }}>
+                      Slot: {slotInfo.slotText}
+                    </Text>
+                    {slotInfo.reason && (
+                      <Text style={{ fontSize: 10, color: theme.subText }} numberOfLines={1}>
+                        ({slotInfo.reason})
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
 
-              <View style={{ justifyContent: "center", paddingLeft: 8 }}>
-                <Ionicons name="chevron-forward" size={18} color={theme.muted} />
+              <View
+                style={[styles.actionBtn, { backgroundColor: theme.primary }]}
+              >
+                <Ionicons name="chevron-forward" size={18} color="#000" />
               </View>
             </TouchableOpacity>
-          ))}
+          </View>
+        );
+      })}
+
+      {/* COMPLETED PICKUPS SECTION AT BOTTOM */}
+      {completedPickups.length > 0 && (
+        <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+          <View style={[styles.sectionHeader, { paddingHorizontal: 0, marginBottom: 12 }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="checkmark-circle-outline" size={20} color={theme.success} />
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                Completed Pickups ({completedPickups.length})
+              </Text>
+            </View>
+          </View>
+
+          {completedPickups.map((item: any) => {
+            const slotInfo = getPickupSlotAndDelayInfo(item);
+            return (
+              <TouchableOpacity
+                key={`comp_${item._id}`}
+                activeOpacity={0.8}
+                style={[
+                  styles.card,
+                  {
+                    marginHorizontal: 0,
+                    backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                    borderColor: isDark ? "#334155" : "#E2E8F0",
+                  },
+                ]}
+                onPress={() =>
+                  router.push(`/(rider)/order/pickup/[orderId]?orderId=${item._id}`)
+                }
+              >
+                <View style={[styles.iconWrap, { backgroundColor: "#DCFCE7" }]}>
+                  <Ionicons name="checkmark-circle" size={22} color={theme.success} />
+                </View>
+
+                <View style={styles.cardBody}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={[styles.orderId, { color: theme.text }]}>
+                      {item._id
+                        ? `WZP-${item._id.slice(-5)}`.toUpperCase()
+                        : "WZP-----"}
+                    </Text>
+                    <Text style={{ fontSize: 11, fontWeight: "900", color: theme.success }}>
+                      COMPLETED
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.name, { color: theme.subText }]}>
+                    {item.Name || "Customer"}
+                  </Text>
+
+                  <View style={styles.addressRow}>
+                    <Ionicons
+                      name="location-outline"
+                      size={14}
+                      color={theme.subText}
+                    />
+                    <Text
+                      style={[styles.address, { color: theme.subText }]}
+                      numberOfLines={1}
+                    >
+                      {item.Address || "Address not available"}
+                    </Text>
+                  </View>
+
+                  {slotInfo.slotText && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                      <Ionicons name="time-outline" size={13} color={theme.subText} />
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: theme.subText }}>
+                        Slot: {slotInfo.slotText}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ justifyContent: "center", paddingLeft: 8 }}>
+                  <Ionicons name="chevron-forward" size={18} color={theme.muted} />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
     </ScrollView>
